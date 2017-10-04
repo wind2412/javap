@@ -1,0 +1,7 @@
+*
+!*.*
+!*/
+*.dSYM
+*/*.dSYM
+*/bin/*
+.DS_Store
