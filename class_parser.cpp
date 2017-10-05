@@ -1785,6 +1785,143 @@ std::unordered_map<u1, std::pair<std::string, int>> bccode_map{	// pair<bccode_n
 	{0xff, {"impdep2", 0}},	
 };
 
+// aux pasing Runtime(In)visibleAnnotations.
+// e.g. RuntimeInvisibleAnnotations:
+// 			0: #12(#13=s#14,#15=@#10())
+std::string recursive_parse_annotation (annotation *target) {
+	std::stringstream total_str;
+	total_str << "#" << target->type_index << "(";	// print key: #12
+	
+	// parse value
+	std::function<std::string(element_value*)> parse_inner_element_value = [&parse_inner_element_value](element_value *inner_ev) -> std::string {
+		std::stringstream ss;
+		switch ((char)inner_ev->tag) {
+			case 'B':case 'C':case 'D':case 'F':
+			case 'I':case 'J':case 'S':case 'Z':
+			case 's':{
+				ss << "s#" << ((const_value_t *)inner_ev->value)->const_value_index;		// bug2: 指针强转不会有错误提示！！因此......这里原先写得是((const_value_t *)inner_ev)，但其实 inner_ev 内部的 inner_ev->value 才是真正应该被转换的......编译器不给报错！！
+				break;
+			}
+			case 'e':{
+				ss << "e#" << ((enum_const_value_t *)inner_ev->value)->const_name_index << "+"
+							<< ((enum_const_value_t *)inner_ev->value)->type_name_index;
+				break;
+			}
+			case 'c':{
+				ss << "c#" << ((class_info_t *)inner_ev)->class_info_index;
+				break;
+			}
+			case '@':{
+				ss << "@" << recursive_parse_annotation((annotation *)inner_ev->value);	// recursive call outer function.
+				break;
+			}
+			case '[':{
+				ss << "[";
+				int length = ((array_value_t *)inner_ev->value)->num_values;
+				for (int pos = 0; pos < length; pos ++) {
+							// bug 3 ！！调试时间最长的 bug！！在这里我不小心定义了和这个函数的参数一模一样的 inner_ev 变量！！在程序走到这里的时候，发生了如下错误！！重新定义一个和原先名字一模一样的变量 clang++ 竟然不报错吗 ???
+							/**
+								就好像:
+								
+								void haha(char **argv) 
+								{
+									{
+										char **argv = argv;	// 不会有错误提示！唉（  g++ 和 clang++ 都没有错误提示...... 万一写错了咋办......看来只能自己小心了...
+									}
+								};
+
+								*/
+					// element_value *inner_ev = &((array_value_t *)inner_ev->value)->values[pos];	// error: Couldn't apply expression side effects : Couldn't dematerialize a result variable: couldn't read its memory
+					element_value *inner_ev_2 = &((array_value_t *)inner_ev->value)->values[pos];
+					ss << parse_inner_element_value(inner_ev_2);		// recursive !
+					if (pos != length-1)	ss << ",";
+				}
+				ss << "]";
+				break;
+			}
+			default:{
+				std::cerr << "can't get here. in element_value." << std::endl;
+				assert(false);
+			}
+		}
+		return ss.str();
+	};
+	
+	// bool is_first = false;
+	for (int j = 0; j < target->num_element_value_pairs; j ++) {
+		total_str << "#" << target->element_value_pairs[j].element_name_index << "=";	// inner value's key: #13
+		element_value *inner_ev = &target->element_value_pairs[j].value;
+		total_str << parse_inner_element_value(inner_ev);
+		if (j != target->num_element_value_pairs-1)	total_str << ",";
+	}
+
+	total_str << ")";
+	return total_str.str();
+};
+
+// 注意：支持中文变量名(应该全改成 wstring 才行)??
+std::wstring get_classname_from_constpool(int index, cp_info **constant_pool) {
+	assert(constant_pool[index-1]->tag == CONSTANT_Class);	// assert index is a Class type.	// then get classname: Unicode
+	return ((CONSTANT_Utf8_info *)constant_pool[((CONSTANT_CS_info *)constant_pool[index-1])->index-1])->convert_to_Unicode();
+}
+
+std::wstring print_verfication(StackMapTable_attribute::verification_type_info** ptr, int length, cp_info **constant_pool, int local_or_stack = 0) {
+	std::wstringstream ss;
+	if (local_or_stack == 0)
+		ss << "locals = [";
+	else 
+		ss << "stack = [";
+	for (int i = 0; i < length; i ++) {
+		int tag = ptr[i]->tag;
+		switch(tag) {
+			case ITEM_Top:{
+				ss << "Top";
+				break;
+			}
+			case ITEM_Integer:{
+				ss << "Integer";
+				break;
+			}
+			case ITEM_Float:{
+				ss << "Float";
+				break;
+			}
+			case ITEM_Double:{
+				ss << "Double";
+				break;
+			}
+			case ITEM_Long:{
+				ss << "Long";
+				break;
+			}
+			case ITEM_Null:{
+				ss << "Null";
+				break;
+			}
+			case ITEM_UninitializedThis:{
+				ss << "UninitializedThis";
+				break;
+			}
+			case ITEM_Object:{
+				// ss << ((StackMapTable_attribute::Object_variable_info *)ptr[i])->cpool_index << "+" << "Object";
+				ss << get_classname_from_constpool(((StackMapTable_attribute::Object_variable_info *)ptr[i])->cpool_index, constant_pool);
+				break;
+			}
+			case ITEM_Uninitialized:{
+				ss << "offset: " << ((StackMapTable_attribute::Uninitialized_variable_info *)ptr[i])->offset << "+" << " Uninitialized";
+				break;
+			}
+			default:{
+				std::cerr << "can't arrive here! in print_verfication()." << std::endl;
+				assert(false);
+			}
+		}
+		if (i != length-1)	ss << ", ";
+	}
+	ss << "]";
+	return ss.str();
+}
+
 void print_attributes(attribute_info *ptr, cp_info **constant_pool) {
 	int attribute_tag = peek_attribute(ptr->attribute_name_index, constant_pool);
 	switch (attribute_tag) {
@@ -1846,6 +1983,7 @@ void print_attributes(attribute_info *ptr, cp_info **constant_pool) {
 			std::cout << "(DEBUG)   Code: " << std::endl;
 			auto *code_ptr = (Code_attribute *)ptr;
 			std::cout << "(DEBUG)     stack=" << code_ptr->max_stack << ", locals=" << code_ptr->max_locals /*<< ", args_size=" << args_size*/ << std::endl;	// output arg_size need parse descriptor. not important.
+			// output bccode
 			for (int bc_num = 0; bc_num < code_ptr->code_length; bc_num ++) {
 				std::cout << "(DEBUG)     ";
 				printf("%3d: %-15s", bc_num, bccode_map[code_ptr->code[bc_num]].first.c_str()); 		// other message is to big, I dont want to save them.
@@ -1855,6 +1993,62 @@ void print_attributes(attribute_info *ptr, cp_info **constant_pool) {
 					
 				}
 				std::cout << std::endl;		// ....... 还有其他的参数没有输出......????
+			}
+			// output code exception table
+			if (code_ptr->exception_table_length != 0) {
+				std::cout << "(DEBUG)     " << "Exception Table:" << std::endl;
+				printf("(DEBUG)%8sfrom%6sto%2starget%4stype\n", "", "", "", "");
+			}
+			for (int pos = 0; pos < code_ptr->exception_table_length; pos ++) {
+				auto *table = &code_ptr->exception_table[pos];
+				printf("(DEBUG)%8s%4d%4s%4d%4s%4d%4s%4d\n", "", table->start_pc, "", table->end_pc, "", table->handler_pc, "", table->catch_type);
+			}
+			// output LineNumberTable、StackMapTable etc. (attributes inner Code Area)
+			for (int pos = 0; pos < code_ptr->attributes_count; pos ++) {
+				print_attributes(code_ptr->attributes[pos], constant_pool);	// print other attributes.
+			}
+			break;
+		}
+		case 2:{	// StackMapTable (Inner Code Attribute)
+			auto *smt_ptr = (StackMapTable_attribute *)ptr;
+			std::cout << "(DEBUG)     StackMapTable: number_of_entries = " << smt_ptr->number_of_entries << std::endl;
+			for (int pos = 0; pos < smt_ptr->number_of_entries; pos ++) {
+				auto *entry = smt_ptr->entries[pos];
+				if (entry->frame_type >= 0 && entry->frame_type <= 63) {
+					auto *frame = (StackMapTable_attribute::same_frame *)entry;
+					std::cout << "(DEBUG)       frame_type = " << dec << (int)frame->frame_type << "  /* same */" << std::endl;
+				} else if (entry->frame_type >= 64 && entry->frame_type <= 127) {
+					auto *frame = (StackMapTable_attribute::same_locals_1_stack_item_frame *)entry;
+					std::cout << "(DEBUG)       frame_type = " << dec << (int)frame->frame_type << "  /* stack_item */" << std::endl;
+					std::wcout << "(DEBUG)         " << print_verfication(&frame->stack[0], 1, constant_pool) << std::endl;
+				} else if (entry->frame_type == 247) {
+					auto *frame = (StackMapTable_attribute::same_locals_1_stack_item_frame_extended *)entry;
+					std::cout << "(DEBUG)       frame_type = " << dec << (int)frame->frame_type << "  /* stack_item_extended */" << std::endl;
+					std::cout << "(DEBUG)         offset_delta = " << frame->offset_delta << std::endl;
+					std::wcout << "(DEBUG)         " << print_verfication(&frame->stack[0], 1, constant_pool) << std::endl;
+				} else if (entry->frame_type >= 248 && entry->frame_type <= 250) {
+					auto *frame = (StackMapTable_attribute::chop_frame *)entry;
+					std::cout << "(DEBUG)       frame_type = " << dec << (int)frame->frame_type << "  /* chop */" << std::endl;
+					std::cout << "(DEBUG)         offset_delta = " << frame->offset_delta << std::endl;
+				} else if (entry->frame_type == 251) {
+					auto *frame = (StackMapTable_attribute::same_frame_extended *)entry;
+					std::cout << "(DEBUG)       frame_type = " << dec << (int)frame->frame_type << "  /* same_extended */" << std::endl;
+					std::cout << "(DEBUG)         offset_delta = " << frame->offset_delta << std::endl;
+				} else if (entry->frame_type >= 252 && entry->frame_type <= 254) {
+					auto *frame = (StackMapTable_attribute::append_frame *)entry;
+					std::cout << "(DEBUG)       frame_type = " << dec << (int)frame->frame_type << "  /* append */" << std::endl;
+					std::cout << "(DEBUG)         offset_delta = " << frame->offset_delta << std::endl;
+					std::wcout << "(DEBUG)         " << print_verfication(frame->locals, frame->frame_type-251, constant_pool) << std::endl;
+				} else if (entry->frame_type == 255) {
+					auto *frame = (StackMapTable_attribute::full_frame *)entry;
+					std::cout << "(DEBUG)       frame_type = " << dec << (int)frame->frame_type << "  /* full */" << std::endl;
+					std::cout << "(DEBUG)         offset_delta = " << frame->offset_delta << std::endl;
+					std::wcout << "(DEBUG)         " << print_verfication(frame->locals, frame->number_of_locals, constant_pool, 0) << std::endl;
+					std::wcout << "(DEBUG)         " << print_verfication(frame->stack, frame->number_of_stack_items, constant_pool, 1) << std::endl;
+				} else {
+					std::cerr << "can't get here! in peek_stackmaptable_frame()" << std::endl;
+					assert(false);
+				}
 			}
 			break;
 		}
@@ -1868,10 +2062,10 @@ void print_attributes(attribute_info *ptr, cp_info **constant_pool) {
 				std::wcout << ((CONSTANT_Utf8_info *)constant_pool[((CONSTANT_CS_info *)constant_pool[throws_ptr->exception_index_table[k]-1])->index-1])->convert_to_Unicode() << " ";
 					// Exceptions_attribute -> CONSTANT_class_info -> CONSTANT_Utf8_info
 			}
+			std::cout << std::endl << "(DEBUG)" << std::endl;
 			break;
 		}
 		case 6:{	// Synthetic
-			auto *synthetic_ptr = (Synthetic_attribute *)ptr;
 			std::cout << "(DEBUG)   Synthetic: (length) " << ptr->attribute_length << std::endl;
 			break;
 		}
@@ -1879,6 +2073,15 @@ void print_attributes(attribute_info *ptr, cp_info **constant_pool) {
 			auto *signature_ptr = (Signature_attribute *)ptr;
 			assert (constant_pool[signature_ptr->signature_index-1]->tag == CONSTANT_Utf8);
 			std::wcout << "(DEBUG)   Signature: " << ((CONSTANT_Utf8_info *)constant_pool[signature_ptr->signature_index-1])->convert_to_Unicode() << std::endl;
+			break;
+		}
+		case 10:{	// LineNumberTable (Inside the Code Attribution)
+			std::cout << "(DEBUG)     LineNumberTable:" << std::endl;
+			auto *line_table = (LineNumberTable_attribute *)ptr;
+			for(int pos = 0; pos < line_table->line_number_table_length; pos ++) {
+				auto *table = &line_table->line_number_table[pos];
+				printf("(DEBUG)%7sline: %4d, start_pc: %-4d\n", "", table->line_number, table->start_pc);
+			}
 			break;
 		}
 		case 13:{	// Deprecated
@@ -1895,82 +2098,23 @@ void print_attributes(attribute_info *ptr, cp_info **constant_pool) {
 			for (int i = 0; i < annotations_ptr->parameter_annotations.num_annotations; i ++) {
 				annotation *target = &annotations_ptr->parameter_annotations.annotations[i];
 				std::cout << "(DEBUG)     " << i << ": ";
-				
-				// e.g. RuntimeInvisibleAnnotations:
-				// 			0: #12(#13=s#14,#15=@#10())
-				std::function<std::string(annotation *)> recursive_parse_annotation = [&recursive_parse_annotation](annotation *target) -> std::string {
-					std::stringstream total_str;
-					total_str << "#" << target->type_index << "(";	// print key: #12
-					
-					// parse value
-					std::function<std::string(element_value*)> parse_inner_element_value = [&recursive_parse_annotation, &parse_inner_element_value](element_value *inner_ev) -> std::string {
-						std::stringstream ss;
-						switch ((char)inner_ev->tag) {
-							case 'B':case 'C':case 'D':case 'F':
-							case 'I':case 'J':case 'S':case 'Z':
-							case 's':{
-								ss << "s#" << ((const_value_t *)inner_ev->value)->const_value_index;		// bug2: 指针强转不会有错误提示！！因此......这里原先写得是((const_value_t *)inner_ev)，但其实 inner_ev 内部的 inner_ev->value 才是真正应该被转换的......编译器不给报错！！
-								break;
-							}
-							case 'e':{
-								ss << "e#" << ((enum_const_value_t *)inner_ev->value)->const_name_index << "+"
-										   << ((enum_const_value_t *)inner_ev->value)->type_name_index;
-								break;
-							}
-							case 'c':{
-								ss << "c#" << ((class_info_t *)inner_ev)->class_info_index;
-								break;
-							}
-							case '@':{
-								ss << "@" << recursive_parse_annotation((annotation *)inner_ev->value);	// recursive call outer function.
-								break;
-							}
-							case '[':{
-								ss << "[";
-								int length = ((array_value_t *)inner_ev->value)->num_values;
-								for (int pos = 0; pos < length; pos ++) {
-											// bug 3 ！！调试时间最长的 bug！！在这里我不小心定义了和这个函数的参数一模一样的 inner_ev 变量！！在程序走到这里的时候，发生了如下错误！！重新定义一个和原先名字一模一样的变量 clang++ 竟然不报错吗 ???
-											/**
-												就好像:
-												
-												void haha(char **argv) 
-												{
-													{
-														char **argv = argv;	// 不会有错误提示！唉（  g++ 和 clang++ 都没有错误提示...... 万一写错了咋办......看来只能自己小心了...
-													}
-												};
-
-											 */
-									// element_value *inner_ev = &((array_value_t *)inner_ev->value)->values[pos];	// error: Couldn't apply expression side effects : Couldn't dematerialize a result variable: couldn't read its memory
-									element_value *inner_ev_2 = &((array_value_t *)inner_ev->value)->values[pos];
-									ss << parse_inner_element_value(inner_ev_2);		// recursive !
-									if (pos != length-1)	ss << ",";
-								}
-								ss << "]";
-								break;
-							}
-							default:{
-								std::cerr << "can't get here. in element_value." << std::endl;
-								assert(false);
-							}
-						}
-						return ss.str();
-					};
-					
-					// bool is_first = false;
-					for (int j = 0; j < target->num_element_value_pairs; j ++) {
-						total_str << "#" << target->element_value_pairs[j].element_name_index << "=";	// inner value's key: #13
-						element_value *inner_ev = &target->element_value_pairs[j].value;
-						total_str << parse_inner_element_value(inner_ev);
-						if (j != target->num_element_value_pairs-1)	total_str << ",";
-					}
-
-					total_str << ")";
-					return total_str.str();
-				};
-
 				std::cout << recursive_parse_annotation(target) << std::endl;
-
+			}
+			break;
+		}
+		case 16:
+		case 17:{
+			if (attribute_tag == 16)
+				std::cout << "(DEBUG)   RuntimeVisibleParameterAnnotations:" << std::endl;
+			else
+				std::cout << "(DEBUG)   RuntimeInisibleParameterAnnotations:" << std::endl;
+			auto *annotations_ptr = (RuntimeVisibleParameterAnnotations_attribute *)ptr;
+			for (int i = 0; i < annotations_ptr->num_parameters; i ++) {
+				for (int j = 0; j < annotations_ptr->parameter_annotations[i].num_annotations; j ++) {
+					annotation *target = &annotations_ptr->parameter_annotations[i].annotations[j];
+					std::cout << "(DEBUG)     " << j << ": ";
+					std::cout << recursive_parse_annotation(target) << std::endl;
+				}
 			}
 			break;
 		}
@@ -2158,8 +2302,8 @@ int main(int argc, char *argv[])
 {
 	std::wcout.imbue(std::locale(""));
 //	std::ifstream f("/Users/zhengxiaolin/Documents/cpp/c++11/JNI/C call java functions/JNIDemo.class", std::ios::binary);		// binary file use operator >> is useless.
-//	std::ifstream f("/Users/zhengxiaolin/Documents/cpp/c++11/java_class_parser/Example.class", std::ios::binary);
-	 std::ifstream f("/Users/zhengxiaolin/Documents/cpp/c++11/java_class_parser/annotations.class", std::ios::binary);	// error!!
+	std::ifstream f("/Users/zhengxiaolin/Documents/cpp/c++11/java_class_parser/Example2.class", std::ios::binary);
+	//  std::ifstream f("/Users/zhengxiaolin/Documents/cpp/c++11/java_class_parser/annotations.class", std::ios::binary);	// error!!
 //	std::ifstream f("/Users/zhengxiaolin/workspace/MyEclipse 2015/twitter_proj/target/classes/zxl/redis/Cluster.class", std::ios::binary);
 	if(!f.is_open()) {
 		cout << "wrong!" << endl;
