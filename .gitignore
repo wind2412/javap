@@ -5,3 +5,4 @@
 */*.dSYM
 */bin/*
 .DS_Store
+*.class
