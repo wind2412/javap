@@ -2301,10 +2301,7 @@ void ClassFile::parse_methods(std::ifstream & f) {
 int main(int argc, char *argv[]) 
 {
 	std::wcout.imbue(std::locale(""));
-//	std::ifstream f("/Users/zhengxiaolin/Documents/cpp/c++11/JNI/C call java functions/JNIDemo.class", std::ios::binary);		// binary file use operator >> is useless.
-	std::ifstream f("/Users/zhengxiaolin/Documents/cpp/c++11/java_class_parser/Example2.class", std::ios::binary);
-	//  std::ifstream f("/Users/zhengxiaolin/Documents/cpp/c++11/java_class_parser/annotations.class", std::ios::binary);	// error!!
-//	std::ifstream f("/Users/zhengxiaolin/workspace/MyEclipse 2015/twitter_proj/target/classes/zxl/redis/Cluster.class", std::ios::binary);
+	std::ifstream f("Annotations.class", std::ios::binary);
 	if(!f.is_open()) {
 		cout << "wrong!" << endl;
 		return -1;
