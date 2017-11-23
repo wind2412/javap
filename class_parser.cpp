@@ -2401,40 +2401,40 @@ void print_attributes(attribute_info *ptr, cp_info **constant_pool) {
 					case 0x00:
 					case 0x01:{	// target_info is [type_parameter_target]
 						auto target = (type_annotation::type_parameter_target *)ta->target_info;
-						std::cout << i << ": [type_parameter_target] " << "#" << (int)target->type_parameter_index << std::endl;
+						std::cout << dec << i << ": [type_parameter_target] " << "#" << (int)target->type_parameter_index << std::endl;
 						break;
 					}
 					case 0x10:{	// target_info is [supertype_target]
 						auto target = (type_annotation::supertype_target *)ta->target_info;
-						std::cout << i << ": [supertype_target] " << "#" << target->supertype_index << std::endl;
+						std::cout << dec << i << ": [supertype_target] " << "#" << target->supertype_index << std::endl;
 						break;
 					}
 					case 0x11:
 					case 0x12:{	// target_info is [type_parameter_bound_target]
 						auto target = (type_annotation::type_parameter_bound_target *)ta->target_info;
-						std::cout << i << ": [type_parameter_bound_target] " << "#" << (int)target->type_parameter_index << " #" << (int)target->bound_index << std::endl;
+						std::cout << dec << i << ": [type_parameter_bound_target] " << "#" << (int)target->type_parameter_index << " #" << (int)target->bound_index << std::endl;
 						break;
 					}
 					case 0x13:
 					case 0x14:
 					case 0x15:{	// target_info is [empty_target]
-						std::cout << i << ": [empty_target]" << std::endl;
+						std::cout << dec << i << ": [empty_target]" << std::endl;
 						break;
 					}
 					case 0x16:{	// target_info is [formal_parameter_target]
 						auto target = (type_annotation::formal_parameter_target *)ta->target_info;
-						std::cout << i << ": [formal_parameter_target] " << "#" << (int)target->formal_parameter_index << std::endl;
+						std::cout << dec << i << ": [formal_parameter_target] " << "#" << (int)target->formal_parameter_index << std::endl;
 						break;
 					}
 					case 0x17:{	// target_info is [throws_target]
 						auto target = (type_annotation::throws_target *)ta->target_info;
-						std::cout << i << ": [throws_target] " << "#" << target->throws_type_index << std::endl;
+						std::cout << dec << i << ": [throws_target] " << "#" << target->throws_type_index << std::endl;
 						break;
 					}
 					case 0x40:
 					case 0x41:{	// target_info is [localvar_target]
 						auto target = (type_annotation::localvar_target *)ta->target_info;
-						std::cout << i << ": [localvar_target] " << std::endl;
+						std::cout << dec << i << ": [localvar_target] " << std::endl;
 						for (int pos = 0; pos < target->table_length; pos ++) {
 							auto table = target->table[pos];
 							std::cout << "(DEBUG)       " << "index: " << table.index << ", start_pc: " << table.start_pc << ", length: " << table.length << std::endl;
@@ -2443,7 +2443,7 @@ void print_attributes(attribute_info *ptr, cp_info **constant_pool) {
 					}
 					case 0x42:{	// target_info is [catch_target]
 						auto target = (type_annotation::catch_target *)ta->target_info;
-						std::cout << i << ": [catch_target] " << "#" << target->exception_table_index << std::endl;
+						std::cout << dec << i << ": [catch_target] " << "#" << target->exception_table_index << std::endl;
 						break;
 					}
 					case 0x43:
@@ -2451,7 +2451,7 @@ void print_attributes(attribute_info *ptr, cp_info **constant_pool) {
 					case 0x45:
 					case 0x46:{	// target_info is [offset_target]
 						auto target = (type_annotation::offset_target *)ta->target_info;
-						std::cout << i << ": [offset_target] " << "#" << target->offset << std::endl;
+						std::cout << dec << i << ": [offset_target] " << "#" << target->offset << std::endl;
 						break;
 					}
 					case 0x47:
@@ -2460,7 +2460,7 @@ void print_attributes(attribute_info *ptr, cp_info **constant_pool) {
 					case 0x4A:
 					case 0x4B:{	// target_info is [type_argument_target]
 						auto target = (type_annotation::type_argument_target *)ta->target_info;
-						std::cout << i << ": [type_argument_target] " << "#" << target->offset << " #" << (int)target->type_argument_index << std::endl;
+						std::cout << dec << i << ": [type_argument_target] " << "#" << target->offset << " #" << (int)target->type_argument_index << std::endl;
 						break;
 					}
 					default:{
