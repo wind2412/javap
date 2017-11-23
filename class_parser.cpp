@@ -2357,7 +2357,6 @@ void print_attributes(attribute_info *ptr, cp_info **constant_pool) {
 				std::cout << "(DEBUG)   RuntimeVisibleAnnotations:" << std::endl;
 			else
 				std::cout << "(DEBUG)   RuntimeInisibleAnnotations:" << std::endl;
-				std::cout << "(DEBUG)... " << ((RuntimeVisibleAnnotations_attribute *)ptr)->attribute_name_index << std::endl;
 			auto *annotations_ptr = (RuntimeVisibleAnnotations_attribute *)ptr;
 			for (int i = 0; i < annotations_ptr->parameter_annotations.num_annotations; i ++) {
 				annotation *target = &annotations_ptr->parameter_annotations.annotations[i];
@@ -2372,7 +2371,6 @@ void print_attributes(attribute_info *ptr, cp_info **constant_pool) {
 				std::cout << "(DEBUG)   RuntimeVisibleParameterAnnotations:" << std::endl;
 			else
 				std::cout << "(DEBUG)   RuntimeInisibleParameterAnnotations:" << std::endl;
-				std::cout << "(DEBUG)... " << ((RuntimeVisibleParameterAnnotations_attribute *)ptr)->attribute_name_index << std::endl;
 			auto *annotations_ptr = (RuntimeVisibleParameterAnnotations_attribute *)ptr;
 			for (int i = 0; i < annotations_ptr->num_parameters; i ++) {
 				for (int j = 0; j < annotations_ptr->parameter_annotations[i].num_annotations; j ++) {
@@ -2389,7 +2387,6 @@ void print_attributes(attribute_info *ptr, cp_info **constant_pool) {
 				std::cout << "(DEBUG)   RuntimeVisibleTypeAnnotations:" << std::endl;
 			else
 				std::cout << "(DEBUG)   RuntimeInisibleTypeAnnotations:" << std::endl;
-				std::cout << "(DEBUG)... " << ((RuntimeVisibleTypeAnnotations_attribute *)ptr)->attribute_name_index << std::endl;
 			auto *annotations_ptr = (RuntimeVisibleTypeAnnotations_attribute *)ptr;
 			for (int i = 0; i < annotations_ptr->num_annotations; i ++) {
 				type_annotation *ta = &annotations_ptr->annotations[i];
