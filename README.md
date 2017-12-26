@@ -5,7 +5,7 @@ Imitate java command tool `javap -p -verbose`.
 # Example
 1. download this repo
 2. compile `Annotations.java` or other `.java` file: `javac -parameters Annotations.java`(`-parameters` is to open the switch of `MethodParameters` Attribute of `java8`). if U want to `javap` other `.java` file, please modify `class_main.cc` file to the right `.class` file.
-3. compile the javap tool: `g++ -c class_parser.cpp -o class_parser.o && g++ class_main.cc -o myjavap class_parser.o`
+3. compile the javap tool: `g++ -std=c++11 -c class_parser.cpp -o class_parser.o && g++ -std=c++11 class_main.cc -o myjavap class_parser.o`
 4. run. `./myjavap` is okay.
 
 # Display

@@ -210,7 +210,7 @@ std::wstring CONSTANT_Utf8_info::convert_to_Unicode() {
 	}
 	return str;
 }
-CONSTANT_Utf8_info::~CONSTANT_Utf8_info() { if (bytes != nullptr)	delete bytes; }
+CONSTANT_Utf8_info::~CONSTANT_Utf8_info() { if (bytes != nullptr)	delete[] bytes; }
 
 // CONSTANT_MethodHandle_info
 std::ifstream & operator >> (std::ifstream & f, CONSTANT_MethodHandle_info & i) {
@@ -509,8 +509,8 @@ void Code_attribute::fill(std::ifstream & f, cp_info **constant_pool) {
 	}
 }
 Code_attribute::~Code_attribute() {
-	if(code != nullptr) delete code; 
-	if(exception_table != nullptr) delete exception_table; 
+	if(code != nullptr) delete[] code; 
+	if(exception_table != nullptr) delete[] exception_table; 
 	if(attributes != nullptr) {
 		for(int i = 0; i < attributes_count; i ++) {
 			delete attributes[i];
@@ -2575,8 +2575,13 @@ ClassFile::~ClassFile() {
 	delete[] constant_pool;
 	delete[] interfaces;
 	delete[] fields;
-		
-	// todo: delete others memory !!!!!!!!!!!
+	delete[] methods;
+	if (attributes != nullptr) {
+		for (int i = 0; i < attributes_count; i ++) {
+			delete attributes[i];
+		}
+	}
+	delete[] attributes;
 }
 
 void ClassFile::parse_header(std::ifstream & f) {
