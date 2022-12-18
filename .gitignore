@@ -6,4 +6,6 @@
 */*.dSYM
 */bin/*
 .DS_Store
-*.class
+.idea/
+cmake-build-debug/
+build/
